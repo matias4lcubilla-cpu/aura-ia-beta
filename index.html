@@ -32,7 +32,6 @@
             margin: 0 0 4px 0;
             color: #10b981;
             font-weight: bold;
-            letter-spacing: 0.5px;
         }
         .subtitle {
             text-align: center;
@@ -149,7 +148,6 @@
 <body>
 
     <div class="container">
-        <!-- 🟢 TÍTULO ACTUALIZADO -->
         <h1>AURA AI 2.0</h1>
         <div class="subtitle">Baila junto a nuestro bailarín con el poder de la IA</div>
 
@@ -235,7 +233,6 @@
             }
         }
 
-        // Módulo de cámara en vivo restaurado
         startCamBtn.addEventListener('click', async () => {
             if (stream) {
                 stopCameraIfOn();
@@ -258,7 +255,6 @@
             }
         });
 
-        // Capturar foto desde la cámara
         captureBtn.addEventListener('click', () => {
             const canvas = document.createElement('canvas');
             canvas.width = camVideo.videoWidth || 640;
@@ -271,3 +267,6 @@
             
             capturedImage.classList.remove('hidden');
             camVideo.classList.add('hidden');
+            captureBtn.classList.add('hidden');
+            placeholderText.classList.add('hidden');
+            startCamBtn.textContent = "Usar cámara";
