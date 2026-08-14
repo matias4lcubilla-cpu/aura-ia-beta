@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AURA AI 2.0</title>
+    <title>AI Dance Studio - Demo</title>
     <style>
         body {
             background-color: #020617;
@@ -28,11 +28,9 @@
         }
         h1 {
             text-align: center;
-            font-size: 26px;
+            font-size: 24px;
             margin: 0 0 4px 0;
             color: #10b981;
-            font-weight: bold;
-            letter-spacing: 0.5px;
         }
         .subtitle {
             text-align: center;
@@ -84,7 +82,7 @@
         .hidden {
             display: none !important;
         }
-        button, a.btn {
+        button {
             width: 100%;
             padding: 14px;
             border-radius: 12px;
@@ -94,9 +92,6 @@
             cursor: pointer;
             margin-bottom: 8px;
             transition: 0.2s;
-            display: inline-block;
-            text-align: center;
-            text-decoration: none;
         }
         .btn-action {
             background: linear-gradient(to right, #10b981, #2563eb);
@@ -133,6 +128,7 @@
             box-sizing: border-box;
             cursor: pointer;
         }
+        /* Small camera controls that don't break original layout */
         .camera-controls {
             display: flex;
             gap: 8px;
@@ -147,19 +143,12 @@
             color: #cbd5e1;
             border: 1px solid #334155;
         }
-        #mediaOutput video {
-            width: 100%;
-            height: auto;
-            display: block;
-            border-radius: 8px;
-            background: black;
-        }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>AURA AI 2.0</h1>
+        <h1>AI DANCE EXPERIENCE</h1>
         <div class="subtitle">Baila junto a nuestro bailarín con el poder de la IA</div>
 
         <div class="input-group">
@@ -211,13 +200,12 @@
             <div id="outputContainer" class="hidden">
                 <div style="color: #10b981; font-size: 14px; font-weight: bold; margin-bottom: 12px;">✨ ¡Video Creado con Éxito!</div>
                 <div id="mediaOutput" style="width: 100%; border-radius: 8px; overflow: hidden; background-color: black;"></div>
-                <button type="button" id="downloadBtn" class="hidden" style="background-color: #1e293b; color: white; margin-top: 12px; width: 100%; padding: 10px; border-radius: 8px; border: none; font-weight: bold">DESCARGAR VIDEO</button>
+                <button type="button" id="downloadBtn" style="background-color: #1e293b; color: white; margin-top: 12px; width: 100%; padding: 10px; border-radius: 8px; border: none; font-weight: bold">DESCARGAR VIDEO</button>
             </div>
         </div>
     </div>
 
     <script>
-        // Element references
         const fileInput = document.getElementById('fileInput');
         const capturedImage = document.getElementById('capturedImage');
         const placeholderText = document.getElementById('placeholderText');
@@ -233,301 +221,225 @@
         const captureBtn = document.getElementById('captureBtn');
         const camVideo = document.getElementById('camVideo');
 
-        // Global state
-        let base64Photo = null;      // For preview
-        let selectedBlob = null;     // Raw binary to upload
+        let base64Photo = null;
         let stream = null;
-        let isProcessing = false;
 
-        // Fal.ai key (as provided)
         const LLAVE_INTERNA_FAL = "5da8dc23-d13a-410a-aebd-41c459c50064:5abfa1b853971d383a15d6113c2208cc";
 
-        // Utility: stop camera
-        function stopCameraIfOn() {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-                stream = null;
-            }
-        }
-
-        // Start/stop camera
-        startCamBtn.addEventListener('click', async () => {
-            if (stream) {
-                stopCameraIfOn();
-                camVideo.classList.add('hidden');
-                placeholderText.classList.remove('hidden');
-                captureBtn.classList.add('hidden');
-                startCamBtn.textContent = "Usar cámara";
-                return;
-            }
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
-                camVideo.srcObject = stream;
-                camVideo.classList.remove('hidden');
-                placeholderText.classList.add('hidden');
-                capturedImage.classList.add('hidden');
-                captureBtn.classList.remove('hidden');
-                startCamBtn.textContent = "Apagar cámara";
-            } catch (err) {
-                alert("La cámara requiere permisos del dispositivo o entorno HTTPS seguro.");
+        // file input: usar e.target.files[0] y FileReader para vista previa inmediata
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files && e.target.files[0];
+            if (file) {
+                const lector = new FileReader();
+                lector.onload = function(evt) {
+                    base64Photo = evt.target.result;
+                    capturedImage.src = base64Photo;
+                    capturedImage.classList.remove('hidden');
+                    placeholderText.classList.add('hidden');
+                    // si había cámara activa, detenerla (ya que hemos seleccionado una foto)
+                    stopCameraIfOn();
+                    camVideo.classList.add('hidden');
+                    captureBtn.classList.add('hidden');
+                };
+                lector.readAsDataURL(file);
             }
         });
 
-        // Capture photo from camera: save both base64 (preview) and Blob (upload)
-        captureBtn.addEventListener('click', async () => {
-            if (!camVideo || !stream) return;
-            const canvas = document.createElement('canvas');
-            canvas.width = camVideo.videoWidth || 640;
-            canvas.height = camVideo.videoHeight || 480;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(camVideo, 0, 0, canvas.width, canvas.height);
+        // Cámara: startCamBtn con navigator.mediaDevices.getUserMedia y atributos playsinline/autoplay/muted
+        startCamBtn.addEventListener('click', async function() {
+            try {
+                if (stream) {
+                    // si ya está corriendo, alternar a detener
+                    stopCameraIfOn();
+                    return;
+                }
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+                camVideo.srcObject = stream;
+                camVideo.classList.remove('hidden');
+                capturedImage.classList.add('hidden');
+                placeholderText.classList.add('hidden');
+                captureBtn.classList.remove('hidden');
+                // ensure the video is playing
+                try { await camVideo.play(); } catch (err) { /* ignore */ }
+                startCamBtn.textContent = 'Detener cámara';
+            } catch (err) {
+                console.error('Error al acceder a la cámara:', err);
+                alert('No se pudo acceder a la cámara. Verifica permisos y dispositivo.');
+            }
+        });
 
-            base64Photo = canvas.toDataURL('image/jpeg', 0.85);
+        captureBtn.addEventListener('click', function() {
+            if (!stream) return;
+            const videoTrack = stream.getVideoTracks()[0];
+            if (!videoTrack) return;
+            const w = camVideo.videoWidth || 640;
+            const h = camVideo.videoHeight || 480;
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(camVideo, 0, 0, w, h);
+            base64Photo = canvas.toDataURL('image/jpeg', 0.9);
             capturedImage.src = base64Photo;
             capturedImage.classList.remove('hidden');
             camVideo.classList.add('hidden');
-            placeholderText.classList.add('hidden');
-
-            // Convert base64 to Blob and store in selectedBlob for upload
-            try {
-                const blob = await (await fetch(base64Photo)).blob();
-                selectedBlob = new Blob([blob], { type: 'image/jpeg' });
-            } catch (err) {
-                console.error('Error convirtiendo base64 a Blob:', err);
-                selectedBlob = null;
-            }
-            // Stop camera automatically after capture to avoid resource usage
-            stopCameraIfOn();
             captureBtn.classList.add('hidden');
-            startCamBtn.textContent = "Usar cámara";
+            stopCameraIfOn();
+            startCamBtn.textContent = 'Usar cámara';
         });
 
-        // File input: store Blob (binary) and Base64 for preview
-        fileInput.addEventListener('change', async (e) => {
-            const f = e.target.files && e.target.files[0];
-            if (!f) return;
-            selectedBlob = f; // keep raw blob for upload
-            // Create preview base64
-            const reader = new FileReader();
-            reader.onload = () => {
-                base64Photo = reader.result;
-                capturedImage.src = base64Photo;
-                capturedImage.classList.remove('hidden');
-                placeholderText.classList.add('hidden');
-                camVideo.classList.add('hidden');
-                captureBtn.classList.add('hidden');
-                stopCameraIfOn();
-                startCamBtn.textContent = "Usar cámara";
-            };
-            reader.onerror = (err) => {
-                console.error('Error leyendo archivo para preview', err);
-            };
-            reader.readAsDataURL(f);
-        });
-
-        // Helper: sleep
-        function sleep(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
-        }
-
-        // Upload binary to Fal.ai storage endpoint
-        async function uploadFileToFal(blob) {
-            const form = new FormData();
-            // Use a sensible filename
-            form.append('file', blob, 'photo.jpg');
-
-            const res = await fetch('https://fal.run', {
-                method: 'POST',
-                headers: {
-                    'Authorization': 'Key ' + LLAVE_INTERNA_FAL
-                    // NOTE: Do NOT set Content-Type for FormData; browser will set multipart boundary
-                },
-                body: form
-            });
-
-            if (!res.ok) {
-                const text = await res.text().catch(() => '');
-                throw new Error(`Upload failed (${res.status}): ${text}`);
+        function stopCameraIfOn() {
+            if (stream) {
+                stream.getTracks().forEach(t => t.stop());
+                stream = null;
             }
-            const json = await res.json().catch(() => ({}));
-            // Try multiple common key names
-            const fileUrl = json.file_url || json.fileUrl || json.url || json.data?.file_url || json.data?.url;
-            if (!fileUrl) throw new Error('No file_url returned by upload endpoint.');
-            return fileUrl;
+            try {
+                camVideo.srcObject = null;
+            } catch (e) {}
+            camVideo.classList.add('hidden');
+            captureBtn.classList.add('hidden');
+            startCamBtn.textContent = 'Usar cámara';
         }
 
-        // Initiate processing (Kling) sending image_url and prompt
-        async function startProcessingWithFal(file_url, extra = {}) {
-            const payload = {
-                image_url: file_url,
-                prompt: extra.prompt || "Baila junto a nuestro bailarín con movimientos naturales y sincronizados. Mantén fondo limpio y realiza animación de cuerpo completo."
-            };
-            const res = await fetch('https://fal.run', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Key ' + LLAVE_INTERNA_FAL
-                },
-                body: JSON.stringify(payload)
-            });
-            if (!res.ok) {
-                const text = await res.text().catch(() => '');
-                throw new Error(`Process start failed (${res.status}): ${text}`);
-            }
-            const json = await res.json().catch(() => ({}));
-            // Expect status_url returned
-            const statusUrl = json.status_url || json.statusUrl || json.job?.status_url || json.status_endpoint || json.status;
-            if (!statusUrl) throw new Error('No status_url returned when starting processing.');
-            return statusUrl;
-        }
+        // Flujo de conexión HTTP e inyección a Fal.ai con polling hasta COMPLETED
+        submitBtn.onclick = async function() {
+            const nombre = document.getElementById('insNombre').value.trim();
 
-        // Poll status_url every 4s until COMPLETED
-        async function pollUntilCompleted(statusUrl, onUpdate) {
-            // Normalize URL: sometimes APIs return relative paths
-            const absoluteStatusUrl = statusUrl.startsWith('http') ? statusUrl : ('https://fal.run' + (statusUrl.startsWith('/') ? '' : '/') + statusUrl);
-            while (true) {
-                const res = await fetch(absoluteStatusUrl, {
-                    method: 'GET',
+            if (!nombre) { alert("Por favor, ingresa tu Nombre y Apellido."); return; }
+            if (!base64Photo) { alert("Por favor, selecciona una foto primero."); return; }
+
+            resultZone.classList.remove('hidden');
+            loadingStatus.classList.remove('hidden');
+            outputContainer.classList.add('hidden');
+            mediaOutput.innerHTML = "";
+            statusMessage.innerText = "Iniciando conexión con Fal.ai...";
+
+            try {
+                // POST inicial que crea el job
+                const resp = await fetch("https://fal.run", {
+                    method: "POST",
                     headers: {
-                        'Authorization': 'Key ' + LLAVE_INTERNA_FAL,
-                        'Accept': 'application/json'
-                    }
+                        "Authorization": `Key ${LLAVE_INTERNA_FAL}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        image_url: base64Photo,
+                        prompt: "Cinematic dance video. The person in this image performs an energetic contemporary dance choreography on stage, ending in a warm and realistic embrace with their partner. Natural lighting, high quality, realistic motion.",
+                        // puedes añadir otros parámetros según la API de destino (ej: style, length)
+                    })
                 });
-                if (!res.ok) {
-                    const text = await res.text().catch(() => '');
-                    throw new Error(`Status check failed (${res.status}): ${text}`);
-                }
-                const json = await res.json().catch(() => ({}));
-                const status = (json.status || json.state || json.job?.status || json.data?.status || '').toString().toUpperCase();
-                // Update UI
-                if (onUpdate) {
-                    onUpdate(status, json);
-                }
-                if (status === 'COMPLETED' || status === 'SUCCEEDED' || status === 'DONE' ) {
-                    return json;
-                }
-                if (status === 'FAILED' || status === 'ERROR') {
-                    throw new Error('Processing failed on remote service.');
-                }
-                await sleep(4000);
-            }
-        }
 
-        // Show result, embed video and enable download
-        function showResultAndEnableDownload(videoUrl) {
-            // Hide loading status, show output container
+                if (!resp.ok) {
+                    const errorData = await resp.json().catch(() => ({}));
+                    throw new Error(errorData.detail || "La cuenta de Fal.ai rechazó la petición. Verifica tus créditos de prueba.");
+                }
+
+                const data = await resp.json();
+
+                // Determinar URL de estado (la API puede devolver status_url o id)
+                let statusUrl = data.status_url || data.status || null;
+                // Si la API devolviera un id y no status_url podríamos formar la URL; aquí intentamos usar lo que haya.
+                if (!statusUrl && data.id) {
+                    // tentativa de endpoint de status (si la API lo soporta). Si no es correcto, el poll fallará y mostraremos error.
+                    statusUrl = `https://fal.run/${data.id}`;
+                }
+
+                if (!statusUrl) {
+                    // Si no hay status_url, pero la respuesta contiene directamente el resultado, manejarlo.
+                    // Intentamos mostrar data.output_url / data.file_url / data.result...
+                    const directUrl = data.output_url || data.file_url || (data.result && data.result.file_url);
+                    if (directUrl) {
+                        showResultAndEnableDownload(directUrl);
+                        return;
+                    }
+                    throw new Error("No se pudo obtener la URL de estado del servicio.");
+                }
+
+                // Polling asíncrono hasta COMPLETED
+                let attempts = 0;
+                const maxAttempts = 120; // ej: hasta ~4 minutos si sleep=2000ms
+                let finalData = null;
+                while (attempts < maxAttempts) {
+                    attempts++;
+                    statusMessage.innerText = `IA Procesando... Intento ${attempts}`;
+                    const pollResp = await fetch(statusUrl, {
+                        headers: {
+                            "Authorization": `Key ${LLAVE_INTERNA_FAL}`,
+                            "Content-Type": "application/json"
+                        }
+                    });
+
+                    if (!pollResp.ok) {
+                        // intentar leer el body para detalle de error
+                        const errObj = await pollResp.json().catch(() => ({}));
+                        throw new Error(errObj.detail || `Error al consultar estado (status ${pollResp.status})`);
+                    }
+
+                    const statusData = await pollResp.json();
+                    // La estructura puede variar; normalizamos
+                    const jobStatus = statusData.status || statusData.state || (statusData.result && statusData.result.status) || null;
+
+                    // actualizar mensaje si existe campo útil
+                    statusMessage.innerText = `IA Procesando... Estado: ${jobStatus || 'DESCONOCIDO'}`;
+
+                    if (jobStatus === 'COMPLETED' || jobStatus === 'SUCCEEDED' || jobStatus === 'finished') {
+                        finalData = statusData;
+                        break;
+                    }
+
+                    if (jobStatus === 'FAILED' || jobStatus === 'ERROR') {
+                        throw new Error('El procesamiento falló en el servicio remoto.');
+                    }
+
+                    // esperar 2s antes del siguiente poll
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+
+                if (!finalData) {
+                    throw new Error('Tiempo de espera excedido esperando la finalización del video.');
+                }
+
+                // Extraer URL de archivo de resultado (intentar varias rutas comunes)
+                const fileUrl = finalData.output_url
+                    || finalData.result?.file_url
+                    || finalData.result?.files?.[0]?.url
+                    || finalData.file_url
+                    || finalData.url;
+
+                if (!fileUrl) {
+                    console.warn('Respuesta final:', finalData);
+                    throw new Error('No se encontró la URL del archivo en la respuesta final.');
+                }
+
+                // Mostrar resultado y habilitar descarga
+                showResultAndEnableDownload(fileUrl);
+
+            } catch (err) {
+                console.error(err);
+                loadingStatus.classList.remove('hidden');
+                statusMessage.innerText = `Error: ${err.message || err}`;
+                alert("Ocurrió un error: " + (err.message || err));
+            }
+        };
+
+        function showResultAndEnableDownload(fileUrl) {
             loadingStatus.classList.add('hidden');
             outputContainer.classList.remove('hidden');
-            resultZone.classList.remove('hidden');
-
-            // Clear previous output
-            mediaOutput.innerHTML = '';
-
-            // Create video element
-            const v = document.createElement('video');
-            v.setAttribute('controls', '');
-            v.setAttribute('autoplay', '');
-            v.setAttribute('loop', '');
-            v.setAttribute('playsinline', '');
-            v.muted = false;
-            v.src = videoUrl;
-            v.style.display = 'block';
-            mediaOutput.appendChild(v);
-
-            // Enable download button
-            downloadBtn.classList.remove('hidden');
-            downloadBtn.onclick = () => {
-                // Trigger download via anchor
+            mediaOutput.innerHTML = `<video controls src="${fileUrl}" style="width:100%; height:auto;"></video>`;
+            downloadBtn.onclick = function() {
                 const a = document.createElement('a');
-                a.href = videoUrl;
-                // Suggest filename
-                a.download = 'aura_ai_result.mp4';
+                a.href = fileUrl;
+                a.download = 'aura_video.mp4';
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
             };
-
-            // Scroll result into view (for mobile)
-            resultZone.scrollIntoView({ behavior: 'smooth' });
+            // mostrar mensaje final
+            statusMessage.innerText = '¡Completado! Revisa el video abajo.';
         }
 
-        // Submit flow
-        submitBtn.addEventListener('click', async () => {
-            if (isProcessing) return;
-            isProcessing = true;
-            // Reset UI
-            outputContainer.classList.add('hidden');
-            downloadBtn.classList.add('hidden');
-            loadingStatus.classList.remove('hidden');
-            resultZone.classList.remove('hidden');
-            statusMessage.textContent = 'Preparando archivo...';
-
-            try {
-                if (!selectedBlob) {
-                    throw new Error('No hay foto seleccionada. Usa la cámara o selecciona una imagen.');
-                }
-
-                // Stop camera if running to free resources
-                stopCameraIfOn();
-
-                // 1) Upload binary to Fal.ai temporary storage
-                statusMessage.textContent = 'Subiendo imagen al almacenamiento seguro...';
-                const fileUrl = await uploadFileToFal(selectedBlob);
-
-                // 2) Start processing by sending image_url (Kling) to Fal.ai
-                statusMessage.textContent = 'Enviando orden de procesamiento a la IA...';
-                const statusUrl = await startProcessingWithFal(fileUrl);
-
-                // 3) Poll status
-                statusMessage.textContent = 'Encolado. Esperando procesamiento...';
-                const finalJson = await pollUntilCompleted(statusUrl, (status, fullJson) => {
-                    // Map status to a friendly message
-                    if (status.includes('QUEUE') || status.includes('IN_QUEUE')) {
-                        statusMessage.textContent = 'En cola (IN_QUEUE)...';
-                    } else if (status.includes('PROGRESS') || status.includes('IN_PROGRESS') || status.includes('RUNNING')) {
-                        statusMessage.textContent = 'Procesando (IN_PROGRESS)...';
-                    } else if (status.includes('COMPLETED') || status.includes('SUCCEEDED') || status.includes('DONE')) {
-                        statusMessage.textContent = 'Completado. Preparando resultado...';
-                    } else {
-                        statusMessage.textContent = `Estado: ${status}`;
-                    }
-                });
-
-                // 4) Extract video URL from result
-                // Try multiple possible fields where a provider might place the result
-                let videoUrl = null;
-                videoUrl = videoUrl || finalJson.result?.video?.url;
-                videoUrl = videoUrl || finalJson.output?.video_url;
-                videoUrl = videoUrl || finalJson.data?.result?.video?.url;
-                videoUrl = videoUrl || finalJson.video?.url;
-                videoUrl = videoUrl || finalJson.result_url || finalJson.output?.url || finalJson.url;
-
-                if (!videoUrl) {
-                    // Some APIs return a 'results' array
-                    if (Array.isArray(finalJson.results) && finalJson.results.length) {
-                        const candidate = finalJson.results.find(r => r.video && r.video.url) || finalJson.results[0];
-                        videoUrl = candidate?.video?.url || candidate?.url || candidate?.output?.video_url;
-                    }
-                }
-
-                if (!videoUrl) {
-                    throw new Error('No se encontró la URL del video en la respuesta final.');
-                }
-
-                // 5) Render result and enable download
-                showResultAndEnableDownload(videoUrl);
-
-            } catch (err) {
-                console.error(err);
-                statusMessage.textContent = 'Error: ' + (err.message || 'Ocurrió un error durante el proceso.');
-                alert('Error: ' + (err.message || 'Fallo inesperado. Revisa la consola para más detalles.'));
-            } finally {
-                isProcessing = false;
-            }
-        });
-
-        // Ensure cleanup on page unload
-        window.addEventListener('beforeunload', () => {
+        // limpiar al cerrar o navegar
+        window.addEventListener('beforeunload', function() {
             stopCameraIfOn();
         });
     </script>
