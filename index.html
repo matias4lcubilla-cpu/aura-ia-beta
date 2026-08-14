@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AURA AI 2.0 - Demo</title>
+    <title>AURA AI 2.0</title>
     <style>
         body {
             background-color: #020617;
@@ -28,9 +28,11 @@
         }
         h1 {
             text-align: center;
-            font-size: 24px;
+            font-size: 26px;
             margin: 0 0 4px 0;
             color: #10b981;
+            font-weight: bold;
+            letter-spacing: 0.5px;
         }
         .subtitle {
             text-align: center;
@@ -128,7 +130,6 @@
             box-sizing: border-box;
             cursor: pointer;
         }
-        /* Small camera controls that don't break original layout */
         .camera-controls {
             display: flex;
             gap: 8px;
@@ -148,6 +149,7 @@
 <body>
 
     <div class="container">
+        <!-- 🟢 TÍTULO ACTUALIZADO -->
         <h1>AURA AI 2.0</h1>
         <div class="subtitle">Baila junto a nuestro bailarín con el poder de la IA</div>
 
@@ -200,7 +202,7 @@
             <div id="outputContainer" class="hidden">
                 <div style="color: #10b981; font-size: 14px; font-weight: bold; margin-bottom: 12px;">✨ ¡Video Creado con Éxito!</div>
                 <div id="mediaOutput" style="width: 100%; border-radius: 8px; overflow: hidden; background-color: black;"></div>
-                <button type="button" id="downloadBtn" style="background-color: #1e293b; color: white; margin-top: 12px; width: 100%; padding: 10px; border-radius: 8px; border: none; font-weight:[...]
+                <button type="button" id="downloadBtn" style="background-color: #1e293b; color: white; margin-top: 12px; width: 100%; padding: 10px; border-radius: 8px; border: none; font-weight: bold">DESCARGAR VIDEO</button>
             </div>
         </div>
     </div>
@@ -226,222 +228,46 @@
 
         const LLAVE_INTERNA_FAL = "5da8dc23-d13a-410a-aebd-41c459c50064:5abfa1b853971d383a15d6113c2208cc";
 
-        // file input: usar e.target.files[0] y FileReader para vista previa inmediata
-        fileInput.addEventListener('change', function(e) {
-            const file = e.target.files && e.target.files[0];
-            if (file) {
-                const lector = new FileReader();
-                lector.onload = function(evt) {
-                    base64Photo = evt.target.result;
-                    capturedImage.src = base64Photo;
-                    capturedImage.classList.remove('hidden');
-                    placeholderText.classList.add('hidden');
-                    // si había cámara activa, detenerla (ya que hemos seleccionado una foto)
-                    stopCameraIfOn();
-                    camVideo.classList.add('hidden');
-                    captureBtn.classList.add('hidden');
-                };
-                lector.readAsDataURL(file);
-            }
-        });
-
-        // Cámara: startCamBtn con navigator.mediaDevices.getUserMedia y atributos playsinline/autoplay/muted
-        startCamBtn.addEventListener('click', async function() {
-            try {
-                if (stream) {
-                    // si ya está corriendo, alternar a detener
-                    stopCameraIfOn();
-                    return;
-                }
-                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
-                camVideo.srcObject = stream;
-                camVideo.classList.remove('hidden');
-                capturedImage.classList.add('hidden');
-                placeholderText.classList.add('hidden');
-                captureBtn.classList.remove('hidden');
-                // ensure the video is playing
-                try { await camVideo.play(); } catch (err) { /* ignore */ }
-                startCamBtn.textContent = 'Detener cámara';
-            } catch (err) {
-                console.error('Error al acceder a la cámara:', err);
-                alert('No se pudo acceder a la cámara. Verifica permisos y dispositivo.');
-            }
-        });
-
-        captureBtn.addEventListener('click', function() {
-            if (!stream) return;
-            const videoTrack = stream.getVideoTracks()[0];
-            if (!videoTrack) return;
-            const w = camVideo.videoWidth || 640;
-            const h = camVideo.videoHeight || 480;
-            const canvas = document.createElement('canvas');
-            canvas.width = w;
-            canvas.height = h;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(camVideo, 0, 0, w, h);
-            base64Photo = canvas.toDataURL('image/jpeg', 0.9);
-            capturedImage.src = base64Photo;
-            capturedImage.classList.remove('hidden');
-            camVideo.classList.add('hidden');
-            captureBtn.classList.add('hidden');
-            stopCameraIfOn();
-            startCamBtn.textContent = 'Usar cámara';
-        });
-
         function stopCameraIfOn() {
             if (stream) {
-                stream.getTracks().forEach(t => t.stop());
+                stream.getTracks().forEach(track => track.stop());
                 stream = null;
             }
-            try {
-                camVideo.srcObject = null;
-            } catch (e) {}
-            camVideo.classList.add('hidden');
-            captureBtn.classList.add('hidden');
-            startCamBtn.textContent = 'Usar cámara';
         }
 
-        // Flujo de conexión HTTP e inyección a Fal.ai con polling hasta COMPLETED
-        submitBtn.onclick = async function() {
-            const nombre = document.getElementById('insNombre').value.trim();
-
-            if (!nombre) { alert("Por favor, ingresa tu Nombre y Apellido."); return; }
-            if (!base64Photo) { alert("Por favor, selecciona una foto primero."); return; }
-
-            resultZone.classList.remove('hidden');
-            loadingStatus.classList.remove('hidden');
-            outputContainer.classList.add('hidden');
-            mediaOutput.innerHTML = "";
-            statusMessage.innerText = "Iniciando conexión con Fal.ai...";
-
-            try {
-                // POST inicial que crea el job
-                const resp = await fetch("https://fal.run", {
-                    method: "POST",
-                    headers: {
-                        "Authorization": `Key ${LLAVE_INTERNA_FAL}`,
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        image_url: base64Photo,
-                        prompt: "Cinematic dance video. The person in this image performs an energetic contemporary dance choreography on stage, ending in a warm and realistic embrace with their [...]
-                        // puedes añadir otros parámetros según la API de destino (ej: style, length)
-                    })
-                });
-
-                if (!resp.ok) {
-                    const errorData = await resp.json().catch(() => ({}));
-                    throw new Error(errorData.detail || "La cuenta de Fal.ai rechazó la petición. Verifica tus créditos de prueba.");
-                }
-
-                const data = await resp.json();
-
-                // Determinar URL de estado (la API puede devolver status_url o id)
-                let statusUrl = data.status_url || data.status || null;
-                // Si la API devolviera un id y no status_url podríamos formar la URL; aquí intentamos usar lo que haya.
-                if (!statusUrl && data.id) {
-                    // tentativa de endpoint de status (si la API lo soporta). Si no es correcto, el poll fallará y mostraremos error.
-                    statusUrl = `https://fal.run/${data.id}`;
-                }
-
-                if (!statusUrl) {
-                    // Si no hay status_url, pero la respuesta contiene directamente el resultado, manejarlo.
-                    // Intentamos mostrar data.output_url / data.file_url / data.result...
-                    const directUrl = data.output_url || data.file_url || (data.result && data.result.file_url);
-                    if (directUrl) {
-                        showResultAndEnableDownload(directUrl);
-                        return;
-                    }
-                    throw new Error("No se pudo obtener la URL de estado del servicio.");
-                }
-
-                // Polling asíncrono hasta COMPLETED
-                let attempts = 0;
-                const maxAttempts = 120; // ej: hasta ~4 minutos si sleep=2000ms
-                let finalData = null;
-                while (attempts < maxAttempts) {
-                    attempts++;
-                    statusMessage.innerText = `IA Procesando... Intento ${attempts}`;
-                    const pollResp = await fetch(statusUrl, {
-                        headers: {
-                            "Authorization": `Key ${LLAVE_INTERNA_FAL}`,
-                            "Content-Type": "application/json"
-                        }
-                    });
-
-                    if (!pollResp.ok) {
-                        // intentar leer el body para detalle de error
-                        const errObj = await pollResp.json().catch(() => ({}));
-                        throw new Error(errObj.detail || `Error al consultar estado (status ${pollResp.status})`);
-                    }
-
-                    const statusData = await pollResp.json();
-                    // La estructura puede variar; normalizamos
-                    const jobStatus = statusData.status || statusData.state || (statusData.result && statusData.result.status) || null;
-
-                    // actualizar mensaje si existe campo útil
-                    statusMessage.innerText = `IA Procesando... Estado: ${jobStatus || 'DESCONOCIDO'}`;
-
-                    if (jobStatus === 'COMPLETED' || jobStatus === 'SUCCEEDED' || jobStatus === 'finished') {
-                        finalData = statusData;
-                        break;
-                    }
-
-                    if (jobStatus === 'FAILED' || jobStatus === 'ERROR') {
-                        throw new Error('El procesamiento falló en el servicio remoto.');
-                    }
-
-                    // esperar 2s antes del siguiente poll
-                    await new Promise(r => setTimeout(r, 2000));
-                }
-
-                if (!finalData) {
-                    throw new Error('Tiempo de espera excedido esperando la finalización del video.');
-                }
-
-                // Extraer URL de archivo de resultado (intentar varias rutas comunes)
-                const fileUrl = finalData.output_url
-                    || finalData.result?.file_url
-                    || finalData.result?.files?.[0]?.url
-                    || finalData.file_url
-                    || finalData.url;
-
-                if (!fileUrl) {
-                    console.warn('Respuesta final:', finalData);
-                    throw new Error('No se encontró la URL del archivo en la respuesta final.');
-                }
-
-                // Mostrar resultado y habilitar descarga
-                showResultAndEnableDownload(fileUrl);
-
-            } catch (err) {
-                console.error(err);
-                loadingStatus.classList.remove('hidden');
-                statusMessage.innerText = `Error: ${err.message || err}`;
-                alert("Ocurrió un error: " + (err.message || err));
+        // Módulo de cámara en vivo restaurado
+        startCamBtn.addEventListener('click', async () => {
+            if (stream) {
+                stopCameraIfOn();
+                camVideo.classList.add('hidden');
+                placeholderText.classList.remove('hidden');
+                captureBtn.classList.add('hidden');
+                startCamBtn.textContent = "Usar cámara";
+                return;
             }
-        };
-
-        function showResultAndEnableDownload(fileUrl) {
-            loadingStatus.classList.add('hidden');
-            outputContainer.classList.remove('hidden');
-            mediaOutput.innerHTML = `<video controls src="${fileUrl}" style="width:100%; height:auto;"></video>`;
-            downloadBtn.onclick = function() {
-                const a = document.createElement('a');
-                a.href = fileUrl;
-                a.download = 'aura_video.mp4';
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-            };
-            // mostrar mensaje final
-            statusMessage.innerText = '¡Completado! Revisa el video abajo.';
-        }
-
-        // limpiar al cerrar o navegar
-        window.addEventListener('beforeunload', function() {
-            stopCameraIfOn();
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+                camVideo.srcObject = stream;
+                camVideo.classList.remove('hidden');
+                placeholderText.classList.add('hidden');
+                capturedImage.classList.add('hidden');
+                captureBtn.classList.remove('hidden');
+                startCamBtn.textContent = "Apagar cámara";
+            } catch (err) {
+                alert("La cámara requiere permisos del dispositivo o entorno HTTPS seguro.");
+            }
         });
-    </script>
-</body>
-</html>
+
+        // Capturar foto desde la cámara
+        captureBtn.addEventListener('click', () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = camVideo.videoWidth || 640;
+            canvas.height = camVideo.videoHeight || 480;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(camVideo, 0, 0, canvas.width, canvas.height);
+            
+            base64Photo = canvas.toDataURL('image/jpeg', 0.85);
+            capturedImage.src = base64Photo;
+            
+            capturedImage.classList.remove('hidden');
+            camVideo.classList.add('hidden');
