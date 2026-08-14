@@ -32,6 +32,7 @@
             margin: 0 0 4px 0;
             color: #10b981;
             font-weight: bold;
+            letter-spacing: 0.5px;
         }
         .subtitle {
             text-align: center;
@@ -83,7 +84,7 @@
         .hidden {
             display: none !important;
         }
-        button {
+        button, a.btn {
             width: 100%;
             padding: 14px;
             border-radius: 12px;
@@ -93,6 +94,9 @@
             cursor: pointer;
             margin-bottom: 8px;
             transition: 0.2s;
+            display: inline-block;
+            text-align: center;
+            text-decoration: none;
         }
         .btn-action {
             background: linear-gradient(to right, #10b981, #2563eb);
@@ -142,6 +146,13 @@
             background-color: #1e293b;
             color: #cbd5e1;
             border: 1px solid #334155;
+        }
+        #mediaOutput video {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 8px;
+            background: black;
         }
     </style>
 </head>
@@ -200,12 +211,13 @@
             <div id="outputContainer" class="hidden">
                 <div style="color: #10b981; font-size: 14px; font-weight: bold; margin-bottom: 12px;">✨ ¡Video Creado con Éxito!</div>
                 <div id="mediaOutput" style="width: 100%; border-radius: 8px; overflow: hidden; background-color: black;"></div>
-                <button type="button" id="downloadBtn" style="background-color: #1e293b; color: white; margin-top: 12px; width: 100%; padding: 10px; border-radius: 8px; border: none; font-weight: bold">DESCARGAR VIDEO</button>
+                <button type="button" id="downloadBtn" class="hidden" style="background-color: #1e293b; color: white; margin-top: 12px; width: 100%; padding: 10px; border-radius: 8px; border: none; font-weight: bold">DESCARGAR VIDEO</button>
             </div>
         </div>
     </div>
 
     <script>
+        // Element references
         const fileInput = document.getElementById('fileInput');
         const capturedImage = document.getElementById('capturedImage');
         const placeholderText = document.getElementById('placeholderText');
@@ -221,11 +233,16 @@
         const captureBtn = document.getElementById('captureBtn');
         const camVideo = document.getElementById('camVideo');
 
-        let base64Photo = null;
+        // Global state
+        let base64Photo = null;      // For preview
+        let selectedBlob = null;     // Raw binary to upload
         let stream = null;
+        let isProcessing = false;
 
+        // Fal.ai key (as provided)
         const LLAVE_INTERNA_FAL = "5da8dc23-d13a-410a-aebd-41c459c50064:5abfa1b853971d383a15d6113c2208cc";
 
+        // Utility: stop camera
         function stopCameraIfOn() {
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
@@ -233,6 +250,7 @@
             }
         }
 
+        // Start/stop camera
         startCamBtn.addEventListener('click', async () => {
             if (stream) {
                 stopCameraIfOn();
@@ -255,18 +273,263 @@
             }
         });
 
-        captureBtn.addEventListener('click', () => {
+        // Capture photo from camera: save both base64 (preview) and Blob (upload)
+        captureBtn.addEventListener('click', async () => {
+            if (!camVideo || !stream) return;
             const canvas = document.createElement('canvas');
             canvas.width = camVideo.videoWidth || 640;
             canvas.height = camVideo.videoHeight || 480;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(camVideo, 0, 0, canvas.width, canvas.height);
-            
+
             base64Photo = canvas.toDataURL('image/jpeg', 0.85);
             capturedImage.src = base64Photo;
-            
             capturedImage.classList.remove('hidden');
             camVideo.classList.add('hidden');
-            captureBtn.classList.add('hidden');
             placeholderText.classList.add('hidden');
+
+            // Convert base64 to Blob and store in selectedBlob for upload
+            try {
+                const blob = await (await fetch(base64Photo)).blob();
+                selectedBlob = new Blob([blob], { type: 'image/jpeg' });
+            } catch (err) {
+                console.error('Error convirtiendo base64 a Blob:', err);
+                selectedBlob = null;
+            }
+            // Stop camera automatically after capture to avoid resource usage
+            stopCameraIfOn();
+            captureBtn.classList.add('hidden');
             startCamBtn.textContent = "Usar cámara";
+        });
+
+        // File input: store Blob (binary) and Base64 for preview
+        fileInput.addEventListener('change', async (e) => {
+            const f = e.target.files && e.target.files[0];
+            if (!f) return;
+            selectedBlob = f; // keep raw blob for upload
+            // Create preview base64
+            const reader = new FileReader();
+            reader.onload = () => {
+                base64Photo = reader.result;
+                capturedImage.src = base64Photo;
+                capturedImage.classList.remove('hidden');
+                placeholderText.classList.add('hidden');
+                camVideo.classList.add('hidden');
+                captureBtn.classList.add('hidden');
+                stopCameraIfOn();
+                startCamBtn.textContent = "Usar cámara";
+            };
+            reader.onerror = (err) => {
+                console.error('Error leyendo archivo para preview', err);
+            };
+            reader.readAsDataURL(f);
+        });
+
+        // Helper: sleep
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // Upload binary to Fal.ai storage endpoint
+        async function uploadFileToFal(blob) {
+            const form = new FormData();
+            // Use a sensible filename
+            form.append('file', blob, 'photo.jpg');
+
+            const res = await fetch('https://fal.run', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Key ' + LLAVE_INTERNA_FAL
+                    // NOTE: Do NOT set Content-Type for FormData; browser will set multipart boundary
+                },
+                body: form
+            });
+
+            if (!res.ok) {
+                const text = await res.text().catch(() => '');
+                throw new Error(`Upload failed (${res.status}): ${text}`);
+            }
+            const json = await res.json().catch(() => ({}));
+            // Try multiple common key names
+            const fileUrl = json.file_url || json.fileUrl || json.url || json.data?.file_url || json.data?.url;
+            if (!fileUrl) throw new Error('No file_url returned by upload endpoint.');
+            return fileUrl;
+        }
+
+        // Initiate processing (Kling) sending image_url and prompt
+        async function startProcessingWithFal(file_url, extra = {}) {
+            const payload = {
+                image_url: file_url,
+                prompt: extra.prompt || "Baila junto a nuestro bailarín con movimientos naturales y sincronizados. Mantén fondo limpio y realiza animación de cuerpo completo."
+            };
+            const res = await fetch('https://fal.run', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Key ' + LLAVE_INTERNA_FAL
+                },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) {
+                const text = await res.text().catch(() => '');
+                throw new Error(`Process start failed (${res.status}): ${text}`);
+            }
+            const json = await res.json().catch(() => ({}));
+            // Expect status_url returned
+            const statusUrl = json.status_url || json.statusUrl || json.job?.status_url || json.status_endpoint || json.status;
+            if (!statusUrl) throw new Error('No status_url returned when starting processing.');
+            return statusUrl;
+        }
+
+        // Poll status_url every 4s until COMPLETED
+        async function pollUntilCompleted(statusUrl, onUpdate) {
+            // Normalize URL: sometimes APIs return relative paths
+            const absoluteStatusUrl = statusUrl.startsWith('http') ? statusUrl : ('https://fal.run' + (statusUrl.startsWith('/') ? '' : '/') + statusUrl);
+            while (true) {
+                const res = await fetch(absoluteStatusUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Key ' + LLAVE_INTERNA_FAL,
+                        'Accept': 'application/json'
+                    }
+                });
+                if (!res.ok) {
+                    const text = await res.text().catch(() => '');
+                    throw new Error(`Status check failed (${res.status}): ${text}`);
+                }
+                const json = await res.json().catch(() => ({}));
+                const status = (json.status || json.state || json.job?.status || json.data?.status || '').toString().toUpperCase();
+                // Update UI
+                if (onUpdate) {
+                    onUpdate(status, json);
+                }
+                if (status === 'COMPLETED' || status === 'SUCCEEDED' || status === 'DONE' ) {
+                    return json;
+                }
+                if (status === 'FAILED' || status === 'ERROR') {
+                    throw new Error('Processing failed on remote service.');
+                }
+                await sleep(4000);
+            }
+        }
+
+        // Show result, embed video and enable download
+        function showResultAndEnableDownload(videoUrl) {
+            // Hide loading status, show output container
+            loadingStatus.classList.add('hidden');
+            outputContainer.classList.remove('hidden');
+            resultZone.classList.remove('hidden');
+
+            // Clear previous output
+            mediaOutput.innerHTML = '';
+
+            // Create video element
+            const v = document.createElement('video');
+            v.setAttribute('controls', '');
+            v.setAttribute('autoplay', '');
+            v.setAttribute('loop', '');
+            v.setAttribute('playsinline', '');
+            v.muted = false;
+            v.src = videoUrl;
+            v.style.display = 'block';
+            mediaOutput.appendChild(v);
+
+            // Enable download button
+            downloadBtn.classList.remove('hidden');
+            downloadBtn.onclick = () => {
+                // Trigger download via anchor
+                const a = document.createElement('a');
+                a.href = videoUrl;
+                // Suggest filename
+                a.download = 'aura_ai_result.mp4';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            };
+
+            // Scroll result into view (for mobile)
+            resultZone.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Submit flow
+        submitBtn.addEventListener('click', async () => {
+            if (isProcessing) return;
+            isProcessing = true;
+            // Reset UI
+            outputContainer.classList.add('hidden');
+            downloadBtn.classList.add('hidden');
+            loadingStatus.classList.remove('hidden');
+            resultZone.classList.remove('hidden');
+            statusMessage.textContent = 'Preparando archivo...';
+
+            try {
+                if (!selectedBlob) {
+                    throw new Error('No hay foto seleccionada. Usa la cámara o selecciona una imagen.');
+                }
+
+                // Stop camera if running to free resources
+                stopCameraIfOn();
+
+                // 1) Upload binary to Fal.ai temporary storage
+                statusMessage.textContent = 'Subiendo imagen al almacenamiento seguro...';
+                const fileUrl = await uploadFileToFal(selectedBlob);
+
+                // 2) Start processing by sending image_url (Kling) to Fal.ai
+                statusMessage.textContent = 'Enviando orden de procesamiento a la IA...';
+                const statusUrl = await startProcessingWithFal(fileUrl);
+
+                // 3) Poll status
+                statusMessage.textContent = 'Encolado. Esperando procesamiento...';
+                const finalJson = await pollUntilCompleted(statusUrl, (status, fullJson) => {
+                    // Map status to a friendly message
+                    if (status.includes('QUEUE') || status.includes('IN_QUEUE')) {
+                        statusMessage.textContent = 'En cola (IN_QUEUE)...';
+                    } else if (status.includes('PROGRESS') || status.includes('IN_PROGRESS') || status.includes('RUNNING')) {
+                        statusMessage.textContent = 'Procesando (IN_PROGRESS)...';
+                    } else if (status.includes('COMPLETED') || status.includes('SUCCEEDED') || status.includes('DONE')) {
+                        statusMessage.textContent = 'Completado. Preparando resultado...';
+                    } else {
+                        statusMessage.textContent = `Estado: ${status}`;
+                    }
+                });
+
+                // 4) Extract video URL from result
+                // Try multiple possible fields where a provider might place the result
+                let videoUrl = null;
+                videoUrl = videoUrl || finalJson.result?.video?.url;
+                videoUrl = videoUrl || finalJson.output?.video_url;
+                videoUrl = videoUrl || finalJson.data?.result?.video?.url;
+                videoUrl = videoUrl || finalJson.video?.url;
+                videoUrl = videoUrl || finalJson.result_url || finalJson.output?.url || finalJson.url;
+
+                if (!videoUrl) {
+                    // Some APIs return a 'results' array
+                    if (Array.isArray(finalJson.results) && finalJson.results.length) {
+                        const candidate = finalJson.results.find(r => r.video && r.video.url) || finalJson.results[0];
+                        videoUrl = candidate?.video?.url || candidate?.url || candidate?.output?.video_url;
+                    }
+                }
+
+                if (!videoUrl) {
+                    throw new Error('No se encontró la URL del video en la respuesta final.');
+                }
+
+                // 5) Render result and enable download
+                showResultAndEnableDownload(videoUrl);
+
+            } catch (err) {
+                console.error(err);
+                statusMessage.textContent = 'Error: ' + (err.message || 'Ocurrió un error durante el proceso.');
+                alert('Error: ' + (err.message || 'Fallo inesperado. Revisa la consola para más detalles.'));
+            } finally {
+                isProcessing = false;
+            }
+        });
+
+        // Ensure cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            stopCameraIfOn();
+        });
+    </script>
+</body>
+</html>
