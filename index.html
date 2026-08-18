@@ -17,7 +17,7 @@
         button { width: 100%; padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
         .btn-cam { background-color: #334155; color: white; }
         .btn-action { background: linear-gradient(to right, #10b981, #2563eb); color: white; margin-top: 10px; }
-        .status { text-align: center; color: #34d399; margin-top: 15px; font-weight: bold; }
+        .status { text-align: center; color: #34d399; margin-top: 15px; font-weight: bold; word-break: break-all; }
     </style>
 </head>
 <body>
@@ -62,14 +62,13 @@
         const videoContainer = document.getElementById('videoContainer');
 
         let base64Photo = null;
-        const BACKEND_URL = "https://backend-kling.onrender.com";
+        let stream = null;
 
-
+        // URL Estabilizada y revisada
         const BACKEND_URL = "https://onrender.com";
 
-        // Selección de archivo nativa y limpia
         fileInput.addEventListener('change', function(event) {
-            const file = event.target.files[0];
+            const file = event.target.files && event.target.files[0];
             if (file) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
@@ -83,7 +82,6 @@
             }
         });
 
-        // Activar cámara
         startCamBtn.addEventListener('click', async function() {
             if (stream) {
                 apagarCamara();
@@ -98,11 +96,10 @@
                 captureBtn.classList.remove('hidden');
                 startCamBtn.textContent = 'Apagar Cámara';
             } catch (err) {
-                alert('Error al abrir cámara. Asegúrate de usar HTTPS en el celular.');
+                alert('Error al abrir cámara. Asegúrate de usar HTTPS.');
             }
         });
 
-        // Capturar foto desde el video
         captureBtn.addEventListener('click', function() {
             if (!stream) return;
             const canvas = document.createElement('canvas');
@@ -127,24 +124,28 @@
             startCamBtn.textContent = 'Usar Cámara';
         }
 
-        // Envío de datos al Servidor de Render
         submitBtn.addEventListener('click', async function() {
             const nombre = document.getElementById('insNombre').value.trim();
             if (!nombre) { alert("Ingresa tu Nombre."); return; }
             if (!base64Photo) { alert("Selecciona o sácate una foto."); return; }
 
             statusZone.classList.remove('hidden');
-            statusZone.textContent = "Procesando video en Kling (60s)...";
+            statusZone.style.color = "#34d399";
+            statusZone.textContent = "Iniciando envío a Render...";
             videoContainer.innerHTML = "";
 
             try {
+                // Envío directo con control de error robusto
                 const response = await fetch(`${BACKEND_URL}/api/generate-video`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ userImageBase64: base64Photo })
                 });
 
-                if (!response.ok) throw new Error("Error en el servidor.");
+                if (!response.ok) {
+                    const errText = await response.text().catch(() => "Sin detalles");
+                    throw new Error(`Código Servidor: ${response.status} - ${errText}`);
+                }
 
                 const data = await response.json();
 
@@ -153,11 +154,12 @@
                     videoContainer.classList.remove('hidden');
                     videoContainer.innerHTML = `<video src="${data.videoUrl}" controls autoplay loop style="width:100%; border-radius:10px;"></video>`;
                 } else {
-                    throw new Error("No se recibió el video.");
+                    throw new Error("El servidor respondió pero no envió la URL del video.");
                 }
             } catch (err) {
-                statusZone.textContent = "Hubo un error en la generación.";
-                alert("Error al conectar con Render: " + err.message);
+                statusZone.style.color = "#ef4444";
+                statusZone.textContent = `FALLÓ LA CONEXIÓN: ${err.message}`;
+                console.error(err);
             }
         });
     </script>
