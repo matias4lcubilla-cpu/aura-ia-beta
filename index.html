@@ -2,183 +2,163 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Dance Studio - Demo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Dance Studio</title>
     <style>
-        body { background-color: #020617; color: #ffffff; font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 16px; box-sizing: border-box; }
-        .container { width: 100%; max-width: 380px; background-color: #0f172a; border: 1px solid #1e293b; border-radius: 24px; padding: 24px; box-sizing: border-box; }
-        h1 { text-align: center; font-size: 24px; margin: 0 0 4px 0; color: #10b981; }
-        .subtitle { text-align: center; font-size: 12px; color: #94a3b8; margin-bottom: 24px; }
-        .input-group { margin-bottom: 12px; }
-        label { display: block; font-size: 10px; font-weight: bold; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; }
-        input[type="text"], input[type="tel"], input[type="email"] { width: 100%; background-color: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 12px; color: white; font-size: 14px; box-sizing: border-box; outline: none; }
-        .media-box { width: 100%; height: 220px; background-color: #020617; border: 2px dashed #334155; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; position: relative; margin-bottom: 16px; }
+        body { background-color: #020617; color: #ffffff; font-family: sans-serif; padding: 20px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 360px; background-color: #0f172a; padding: 20px; border-radius: 20px; border: 1px solid #1e293b; }
+        h1 { text-align: center; color: #10b981; font-size: 22px; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; font-size: 11px; color: #94a3b8; margin-bottom: 5px; }
+        input[type="text"] { width: 100%; padding: 10px; background-color: #1e293b; border: 1px solid #334155; border-radius: 10px; color: white; box-sizing: border-box; }
+        .media-box { width: 100%; height: 200px; background-color: #020617; border: 2px dashed #334155; border-radius: 15px; margin-bottom: 15px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
         img, video { width: 100%; height: 100%; object-fit: cover; }
         .hidden { display: none !important; }
-        button { width: 100%; padding: 14px; border-radius: 12px; border: none; font-size: 15px; font-weight: bold; cursor: pointer; margin-bottom: 8px; transition: 0.2s; }
-        .btn-action { background: linear-gradient(to right, #10b981, #2563eb); color: white; margin-top: 16px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2); }
-        .alert-box { background-color: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); padding: 12px; border-radius: 12px; text-align: center; font-size: 11px; color: #34d399; margin-bottom: 16px; }
-        .zone-status { background-color: #020617; border: 1px solid #1e293b; border-radius: 16px; padding: 16px; text-align: center; margin-top: 16px; }
-        .input-file-classic { width: 100%; background-color: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 10px; color: #cbd5e1; font-size: 12px; box-sizing: border-box; cursor: pointer; }
-        .camera-controls { display: flex; gap: 8px; margin-bottom: 12px; }
-        .camera-controls button { flex: 1; padding: 8px; border-radius: 10px; font-size: 13px; background-color: #1e293b; color: #cbd5e1; border: 1px solid #334155; }
+        button { width: 100%; padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
+        .btn-cam { background-color: #334155; color: white; }
+        .btn-action { background: linear-gradient(to right, #10b981, #2563eb); color: white; margin-top: 10px; }
+        .status { text-align: center; color: #34d399; margin-top: 15px; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div class="container">
         <h1>AI DANCE EXPERIENCE</h1>
-        <div class="subtitle">Baila junto a nuestro bailarín con el poder de la IA</div>
-
+        
         <div class="input-group">
             <label>Nombre y Apellido</label>
-            <input type="text" id="insNombre" placeholder="Ej: Juan Pérez">
-        </div>
-        <div class="input-group">
-            <label>Teléfono</label>
-            <input type="tel" id="insTel" placeholder="Ej: +54 9 11...">
-        </div>
-        <div class="input-group">
-            <label>Email</label>
-            <input type="email" id="insEmail" placeholder="Ej: correo@gmail.com">
-        </div>
-
-        <div class="alert-box">
-            💡 <b>Recomendación:</b> Selecciona una foto mostrando de la cintura para arriba.
+            <input type="text" id="insNombre" placeholder="Juan Pérez">
         </div>
 
         <div class="media-box">
             <img id="capturedImage" class="hidden" alt="Vista previa">
             <video id="camVideo" class="hidden" playsinline autoplay muted></video>
-            <div id="placeholderText">
-                <div style="text-align: center;">
-                    <div style="font-size: 32px;">📷</div>
-                    <div style="color: #94a3b8; font-size: 12px; margin-top: 8px;">Ninguna foto seleccionada</div>
-                </div>
-            </div>
+            <div id="placeholderText" style="color: #64748b;">Sin foto seleccionada</div>
         </div>
 
-        <div class="camera-controls">
-            <button type="button" id="startCamBtn">Usar cámara</button>
-            <button type="button" id="captureBtn" class="hidden">Capturar</button>
-        </div>
+        <button type="button" id="startCamBtn" class="btn-cam">Usar Cámara</button>
+        <button type="button" id="captureBtn" class="btn-cam hidden">Capturar Foto</button>
 
         <div class="input-group">
-            <label style="color: #cbd5e1;">Seleccionar foto del dispositivo:</label>
-            <input type="file" id="fileInput" accept="image/*" class="input-file-classic">
+            <label>Subir desde archivo:</label>
+            <input type="file" id="fileInput" accept="image/*" style="color: white;">
         </div>
 
         <button type="button" id="submitBtn" class="btn-action">GENERAR VIDEO JUNTOS</button>
 
-        <div id="resultZone" class="zone-status hidden">
-            <div id="loadingStatus">
-                <div style="color: #34d399; font-size: 14px; font-weight: bold; margin-bottom: 4px;" id="statusMessage">Conectando con la IA...</div>
-                <div style="color: #64748b; font-size: 11px;">Por favor, espera unos segundos sin cerrar la pestaña.</div>
-            </div>
-            
-            <div id="outputContainer" class="hidden">
-                <div style="color: #10b981; font-size: 14px; font-weight: bold; margin-bottom: 12px;">✨ ¡Video Creado con Éxito!</div>
-                <div id="mediaOutput" style="width: 100%; border-radius: 8px; overflow: hidden; background-color: black;"></div>
-                <button type="button" id="downloadBtn" style="background-color: #1e293b; color: white; margin-top: 12px; width: 100%; padding: 10px; border-radius: 8px; border: none; font-weight: bold">DESCARGAR VIDEO</button>
-            </div>
-        </div>
+        <div id="statusZone" class="status hidden">Conectando con la IA...</div>
+        <div id="videoContainer" class="hidden" style="margin-top:15px;"></div>
     </div>
 
     <script>
         const fileInput = document.getElementById('fileInput');
         const capturedImage = document.getElementById('capturedImage');
         const placeholderText = document.getElementById('placeholderText');
-        const submitBtn = document.getElementById('submitBtn');
-        const resultZone = document.getElementById('resultZone');
-        const loadingStatus = document.getElementById('loadingStatus');
-        const statusMessage = document.getElementById('statusMessage');
-        const outputContainer = document.getElementById('outputContainer');
-        const mediaOutput = document.getElementById('mediaOutput');
-        const downloadBtn = document.getElementById('downloadBtn');
-
         const startCamBtn = document.getElementById('startCamBtn');
         const captureBtn = document.getElementById('captureBtn');
         const camVideo = document.getElementById('camVideo');
+        const submitBtn = document.getElementById('submitBtn');
+        const statusZone = document.getElementById('statusZone');
+        const videoContainer = document.getElementById('videoContainer');
 
         let base64Photo = null;
         let stream = null;
 
-        // URL definitiva apuntando a tu backend en Render
-        const BACKEND_URL = "https://backend-kling.onrender.com";
+        const BACKEND_URL = "https://onrender.com";
 
-        fileInput.addEventListener('change', function(e) {
-            const file = e.target.files && e.target.files[0]; // <-- REVISADO Y CORREGIDO COMPLETO
+        // Selección de archivo nativa y limpia
+        fileInput.addEventListener('change', function(event) {
+            const file = event.target.files[0];
             if (file) {
-                const lector = new FileReader();
-                lector.onload = function(evt) {
-                    base64Photo = evt.target.result;
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    base64Photo = e.target.result;
                     capturedImage.src = base64Photo;
                     capturedImage.classList.remove('hidden');
                     placeholderText.classList.add('hidden');
-                    stopCameraIfOn();
+                    apagarCamara();
                 };
-                lector.readAsDataURL(file);
+                reader.readAsDataURL(file);
             }
         });
 
+        // Activar cámara
         startCamBtn.addEventListener('click', async function() {
+            if (stream) {
+                apagarCamara();
+                return;
+            }
             try {
-                if (stream) {
-                    stopCameraIfOn();
-                    return;
-                }
                 stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
                 camVideo.srcObject = stream;
                 camVideo.classList.remove('hidden');
                 capturedImage.classList.add('hidden');
                 placeholderText.classList.add('hidden');
                 captureBtn.classList.remove('hidden');
-                try { await camVideo.play(); } catch (err) { }
-                startCamBtn.textContent = 'Detener cámara';
+                startCamBtn.textContent = 'Apagar Cámara';
             } catch (err) {
-                console.error('Error al acceder a la cámara:', err);
-                alert('No se pudo acceder a la cámara. Verifica permisos y que uses HTTPS.');
+                alert('Error al abrir cámara. Asegúrate de usar HTTPS en el celular.');
             }
         });
 
+        // Capturar foto desde el video
         captureBtn.addEventListener('click', function() {
             if (!stream) return;
-            const w = camVideo.videoWidth || 640;
-            const h = camVideo.videoHeight || 480;
             const canvas = document.createElement('canvas');
-            canvas.width = w;
-            canvas.height = h;
+            canvas.width = camVideo.videoWidth || 640;
+            canvas.height = camVideo.videoHeight || 480;
             const ctx = canvas.getContext('2d');
-            ctx.drawImage(camVideo, 0, 0, w, h);
+            ctx.drawImage(camVideo, 0, 0, canvas.width, canvas.height);
             base64Photo = canvas.toDataURL('image/jpeg', 0.9);
             capturedImage.src = base64Photo;
             capturedImage.classList.remove('hidden');
-            stopCameraIfOn();
+            apagarCamara();
         });
 
-        function stopCameraIfOn() {
+        function apagarCamara() {
             if (stream) {
-                stream.getTracks().forEach(t => t.stop());
+                stream.getTracks().forEach(track => track.stop());
                 stream = null;
             }
-            try { camVideo.srcObject = null; } catch (e) {}
+            camVideo.srcObject = null;
             camVideo.classList.add('hidden');
             captureBtn.classList.add('hidden');
-            startCamBtn.textContent = 'Usar cámara';
+            startCamBtn.textContent = 'Usar Cámara';
         }
 
-        submitBtn.onclick = async function() {
+        // Envío de datos al Servidor de Render
+        submitBtn.addEventListener('click', async function() {
             const nombre = document.getElementById('insNombre').value.trim();
+            if (!nombre) { alert("Ingresa tu Nombre."); return; }
+            if (!base64Photo) { alert("Selecciona o sácate una foto."); return; }
 
-            if (!nombre) { alert("Por favor, ingresa tu Nombre y Apellido."); return; }
-            if (!base64Photo) { alert("Por favor, selecciona o sácate una foto primero."); return; }
-
-            resultZone.classList.remove('hidden');
-            loadingStatus.classList.remove('hidden');
-            outputContainer.classList.add('hidden');
-            mediaOutput.innerHTML = "";
-            statusMessage.innerText = "Enviando imagen al servidor...";
+            statusZone.classList.remove('hidden');
+            statusZone.textContent = "Procesando video en Kling (60s)...";
+            videoContainer.innerHTML = "";
 
             try {
-                const resp = await fetch(`${BACKEND_URL}/api/generate-video`, {
+                const response = await fetch(`${BACKEND_URL}/api/generate-video`, {
                     method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ userImageBase64: base64Photo })
+                });
+
+                if (!response.ok) throw new Error("Error en el servidor.");
+
+                const data = await response.json();
+
+                if (data.videoUrl) {
+                    statusZone.textContent = "¡Video generado con éxito!";
+                    videoContainer.classList.remove('hidden');
+                    videoContainer.innerHTML = `<video src="${data.videoUrl}" controls autoplay loop style="width:100%; border-radius:10px;"></video>`;
+                } else {
+                    throw new Error("No se recibió el video.");
+                }
+            } catch (err) {
+                statusZone.textContent = "Hubo un error en la generación.";
+                alert("Error al conectar con Render: " + err.message);
+            }
+        });
+    </script>
+</body>
+</html>
