@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Dance Studio</title>
+    <title>AI Vedette Experience</title>
     <style>
         body { background-color: #020617; color: #ffffff; font-family: sans-serif; padding: 20px; display: flex; justify-content: center; }
         .container { width: 100%; max-width: 360px; background-color: #0f172a; padding: 20px; border-radius: 20px; border: 1px solid #1e293b; }
@@ -12,6 +12,7 @@
         img, video { width: 100%; height: 100%; object-fit: cover; }
         .hidden { display: none !important; }
         button { width: 100%; padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
+        .btn-cam { background-color: #334155; color: white; }
         .btn-action { background: linear-gradient(to right, #10b981, #2563eb); color: white; margin-top: 10px; }
         .status { text-align: center; color: #34d399; margin-top: 15px; font-weight: bold; word-break: break-all; font-size: 13px; }
     </style>
@@ -19,7 +20,7 @@
 <body>
 
     <div class="container">
-        <h1>AI DANCE EXPERIENCE</h1>
+        <h1>AI VEDETTE EXPERIENCE</h1>
         
         <div style="margin-bottom: 15px;">
             <label style="display:block; font-size:11px; color:#94a3b8; margin-bottom:5px;">Nombre y Apellido</label>
@@ -28,15 +29,19 @@
 
         <div class="media-box">
             <img id="capturedImage" class="hidden" alt="Vista previa">
+            <video id="camVideo" class="hidden" playsinline autoplay muted></video>
             <div id="placeholderText" style="color: #64748b;">Sin foto seleccionada</div>
         </div>
 
+        <button type="button" id="startCamBtn" class="btn-cam">Usar Cámara</button>
+        <button type="button" id="captureBtn" class="btn-cam hidden">Capturar Foto</button>
+
         <div style="margin-bottom: 15px;">
-            <label style="display:block; font-size:11px; color:#94a3b8; margin-bottom:5px;">Subir desde archivo:</label>
+            <label style="display:block; font-size:11px; color:#94a3b8; margin-bottom:5px;">O subir un archivo:</label>
             <input type="file" id="fileInput" accept="image/*" style="color: white;">
         </div>
 
-        <button type="button" id="submitBtn" class="btn-action">GENERAR VIDEO JUNTOS</button>
+        <button type="button" id="submitBtn" class="btn-action">TRANSFORMARME EN VEDETTE</button>
 
         <div id="statusZone" class="status hidden">Conectando...</div>
         <div id="videoContainer" class="hidden" style="margin-top:15px;"></div>
@@ -46,46 +51,77 @@
         const fileInput = document.getElementById('fileInput');
         const capturedImage = document.getElementById('capturedImage');
         const placeholderText = document.getElementById('placeholderText');
+        const startCamBtn = document.getElementById('startCamBtn');
+        const captureBtn = document.getElementById('captureBtn');
+        const camVideo = document.getElementById('camVideo');
         const submitBtn = document.getElementById('submitBtn');
         const statusZone = document.getElementById('statusZone');
         const videoContainer = document.getElementById('videoContainer');
 
         let base64Photo = null;
+        let stream = null;
 
-        // URL Vinculada de tu Render activa
         const BACKEND_URL = "https://onrender.com";
 
-        // Motor de captura reescrito de forma directa y simplificada
-        fileInput.onchange = function(event) {
-            const archivos = event.target.files;
-            if (!archivos || archivos.length === 0) return;
-            
-            const archivoSeleccionado = archivos[0];
-            const lector = new FileReader();
-            
-            lector.onload = function(e) {
-                base64Photo = e.target.result;
-                capturedImage.src = base64Photo;
-                capturedImage.classList.remove('hidden');
-                placeholderText.classList.add('hidden');
-                console.log("Imagen convertida a Base64 con éxito.");
-            };
-            
-            lector.onerror = function() {
-                alert("Error al intentar procesar el archivo seleccionado.");
-            };
-            
-            lector.readAsDataURL(archivoSeleccionado);
-        };
+        fileInput.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    base64Photo = e.target.result;
+                    capturedImage.src = base64Photo;
+                    capturedImage.classList.remove('hidden');
+                    placeholderText.classList.add('hidden');
+                    apagarCamara();
+                };
+                reader.readAsDataURL(file);
+            }
+        });
 
-        submitBtn.onclick = async function() {
+        startCamBtn.addEventListener('click', async function() {
+            if (stream) { apagarCamara(); return; }
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+                camVideo.srcObject = stream;
+                camVideo.classList.remove('hidden');
+                capturedImage.classList.add('hidden');
+                placeholderText.classList.add('hidden');
+                captureBtn.classList.remove('hidden');
+                startCamBtn.textContent = 'Apagar Cámara';
+            } catch (err) {
+                alert('Error al acceder a la cámara.');
+            }
+        });
+
+        captureBtn.addEventListener('click', function() {
+            if (!stream) return;
+            const canvas = document.createElement('canvas');
+            canvas.width = camVideo.videoWidth || 640;
+            canvas.height = camVideo.videoHeight || 480;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(camVideo, 0, 0, canvas.width, canvas.height);
+            base64Photo = canvas.toDataURL('image/jpeg', 0.9);
+            capturedImage.src = base64Photo;
+            capturedImage.classList.remove('hidden');
+            apagarCamara();
+        });
+
+        function apagarCamara() {
+            if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+            camVideo.srcObject = null;
+            camVideo.classList.add('hidden');
+            captureBtn.classList.add('hidden');
+            startCamBtn.textContent = 'Usar Cámara';
+        }
+
+        submitBtn.addEventListener('click', async function() {
             const nombre = document.getElementById('insNombre').value.trim();
             if (!nombre) { alert("Ingresa tu Nombre."); return; }
-            if (!base64Photo) { alert("Selecciona una foto primero."); return; }
+            if (!base64Photo) { alert("Sácate una foto o selecciona un archivo."); return; }
 
             statusZone.classList.remove('hidden');
             statusZone.style.color = "#34d399";
-            statusZone.textContent = "Enviando imagen a Render...";
+            statusZone.textContent = "Enviando foto a la IA de Kling (60s)...";
             videoContainer.innerHTML = "";
 
             try {
@@ -97,7 +133,7 @@
 
                 if (!response.ok) {
                     const txt = await response.text().catch(() => "Sin respuesta");
-                    throw new Error(`Servidor rechazó con código: ${response.status} - ${txt}`);
+                    throw new Error(`Error en servidor: ${response.status} - ${txt}`);
                 }
 
                 const data = await response.json();
@@ -111,10 +147,9 @@
                 }
             } catch (err) {
                 statusZone.style.color = "#ef4444";
-                statusZone.textContent = `DETALLE DEL ERROR: ${err.message}`;
-                console.error(err);
+                statusZone.textContent = `FALLÓ EL PROCESO: ${err.message}`;
             }
-        };
+        });
     </script>
 </body>
 </html>
