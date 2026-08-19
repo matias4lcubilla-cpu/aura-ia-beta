@@ -61,11 +61,12 @@
         let base64Photo = null;
         let stream = null;
 
-        const BACKEND_URL = "https://onrender.com";
+const DIRECT_FAL_KEY = "fca08466-a4e0-4ca9-bcc0-d203a0c0a09b:ae04548ab0e6eacca8056535071dff8a";
+
 
         fileInput.addEventListener('change', function(event) {
-            const file = event.target.files[0];
-            if (file) {
+            const file = event.target.files;
+            if (file && file[0]) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     base64Photo = e.target.result;
@@ -74,7 +75,7 @@
                     placeholderText.classList.add('hidden');
                     apagarCamara();
                 };
-                reader.readAsDataURL(file);
+                reader.readAsDataURL(file[0]);
             }
         });
 
@@ -89,7 +90,7 @@
                 captureBtn.classList.remove('hidden');
                 startCamBtn.textContent = 'Apagar Cámara';
             } catch (err) {
-                alert('Error al acceder a la cámara.');
+                alert('Error al acceder a la cámara. Asegúrate de dar permisos HTTPS.');
             }
         });
 
@@ -100,7 +101,7 @@
             canvas.height = camVideo.videoHeight || 480;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(camVideo, 0, 0, canvas.width, canvas.height);
-            base64Photo = canvas.toDataURL('image/jpeg', 0.9);
+            base64Photo = canvas.toDataURL('image/jpeg', 0.8);
             capturedImage.src = base64Photo;
             capturedImage.classList.remove('hidden');
             apagarCamara();
@@ -121,30 +122,54 @@
 
             statusZone.classList.remove('hidden');
             statusZone.style.color = "#34d399";
-            statusZone.textContent = "Enviando foto a la IA de Kling (60s)...";
+            statusZone.textContent = "Conectando con la IA de Kling...";
             videoContainer.innerHTML = "";
 
             try {
-                const response = await fetch(`${BACKEND_URL}/api/generate-video`, {
+                // LLAMADA DIRECTA POR PASARELA HTTPS DESDE TU DOMINIO SEGURO A FAL
+                const response = await fetch("https://fal.run", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ userImageBase64: base64Photo })
+                    headers: { 
+                        "Content-Type": "application/json",
+                        "Authorization": `Key ${DIRECT_FAL_KEY}`
+                    },
+                    body: JSON.stringify({
+                        image_url: base64Photo,
+                        prompt: "Cinematic performance video. The person in the image is transformed into a spectacular vedette dancer, wearing an exquisite professional carnival costume with massive colorful feathers and sparkling sequins. Performing an energetic and glamorous choreography on a theater stage with dramatic cinematic lighting, 4k, realistic movement.",
+                        duration: "5"
+                    })
                 });
 
                 if (!response.ok) {
                     const txt = await response.text().catch(() => "Sin respuesta");
-                    throw new Error(`Error en servidor: ${response.status} - ${txt}`);
+                    throw new Error(`FAL rechazó: ${response.status} - ${txt}`);
                 }
 
                 const data = await response.json();
+                const requestId = data.request_id;
 
-                if (data.videoUrl) {
-                    statusZone.textContent = "¡Video generado con éxito!";
-                    videoContainer.classList.remove('hidden');
-                    videoContainer.innerHTML = `<video src="${data.videoUrl}" controls autoplay loop style="width:100%; border-radius:10px;"></video>`;
-                } else {
-                    throw new Error("Respuesta sin URL de video.");
+                statusZone.textContent = "Cocinando tu video de Vedette (esperando en cola)...";
+
+                let videoUrl = null;
+                while (!videoUrl) {
+                    await new Promise(r => setTimeout(r, 4000));
+                    const checkRes = await fetch(`https://fal.run/requests/${requestId}`, {
+                        headers: { "Authorization": `Key ${DIRECT_FAL_KEY}` }
+                    });
+                    const checkData = await checkRes.json();
+                    
+                    if (checkData.status === "COMPLETED") {
+                        videoUrl = checkData.video?.url || checkData.video_url;
+                        break;
+                    } else if (checkData.status === "FAILED") {
+                        throw new Error("La generación de Kling falló internamente.");
+                    }
                 }
+
+                statusZone.textContent = "¡Video generado con éxito!";
+                videoContainer.classList.remove('hidden');
+                videoContainer.innerHTML = `<video src="${videoUrl}" controls autoplay loop style="width:100%; border-radius:10px;"></video>`;
+
             } catch (err) {
                 statusZone.style.color = "#ef4444";
                 statusZone.textContent = `FALLÓ EL PROCESO: ${err.message}`;
